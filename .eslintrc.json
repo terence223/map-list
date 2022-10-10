@@ -1,0 +1,36 @@
+{
+    "extends": ["react-app", "prettier", "react-app/jest"],
+    "rules": {
+      "prettier/prettier": 2,
+      "curly": ["error"],
+      "react/self-closing-comp": [
+        "error",
+        {
+          "component": true,
+          "html": true
+        }
+      ],
+      "react/jsx-props-no-spreading": [
+        "error",
+        {
+          "custom": "enforce"
+        }
+      ],
+      "simple-import-sort/sort": [
+        "error",
+        {
+          "groups": [
+            ["^react", "^@?\\w"],
+            [
+              "^(assets|app|components|constants|contexts|hooks|features|services|slices|store|utils|theme)(/.*|$)"
+            ],
+            ["^\\u0000"],
+            ["^\\./(?=.*/)(?!/?$)", "^\\.(?!/?$)", "^\\./?$"],
+            ["^.+\\.s?css$"]
+          ]
+        }
+      ]
+    },
+    "plugins": ["simple-import-sort", "prettier"]
+}
+  
