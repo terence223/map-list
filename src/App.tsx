@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
+import { Chrono } from 'react-chrono';
 import {
   Button,
   Col,
   DatePicker,
-  Form,
   Input,
   InputNumber,
   Modal,
   Row,
   Select,
 } from 'antd';
-import * as moment from 'moment';
+import moment from 'moment';
 import styled from 'styled-components';
+
+import { defaultData } from './defaultData';
 
 import './App.css';
 
@@ -21,21 +23,35 @@ const MenuBar = styled.div`
   display: flex;
   justify-content: space-between;
   padding: 14px 20px;
-  border-bottom: 1px solid #eeeeee;
   width: 100%;
+  border-bottom: 1px solid #eeeeee;
 `;
 
 const FormRow = styled(Row)`
-  padding-right: 140px;
-  padding-left: 60px;
   margin-top: 20px;
   margin-bottom: 20px;
+  padding-right: 140px;
+  padding-left: 60px;
 `;
 
 const FormTitle = styled(Col)`
+  padding-right: 10px;
   text-align: right;
   line-height: 32px;
-  padding-right: 10px;
+`;
+
+const TimeLineWrapper = styled.div`
+  width: 80%;
+  max-width: 1800px;
+  height: 500px;
+`;
+
+const ContentWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 60px;
+  width: 100%;
 `;
 
 const RequiredMark = styled.span`
@@ -47,11 +63,11 @@ type FilterOptionType = {
   value: string;
 };
 
-type DataType = {
+export type DataType = {
   location: string;
   type: string;
   description: string;
-  startDate?: moment.Moment;
+  startDate: moment.Moment;
   duration: number;
 };
 
@@ -65,6 +81,7 @@ const INITIAL_DATA: DataType = {
   location: '',
   type: FILTER_OPTIONS[0].value,
   description: '',
+  startDate: moment(),
   duration: 1,
 };
 
@@ -74,7 +91,8 @@ const App = () => {
   const [filter, setFilter] = useState<string>();
   const [isOpenAddDialog, setIsOpenAddDialog] = useState<boolean>(false);
   const [addingData, setAddingData] = useState<DataType>({ ...INITIAL_DATA });
-  const [data, setData] = useState<DataType[]>([]);
+  const [data, setData] = useState<DataType[]>([...defaultData]);
+  const [activeIndex, setActiveIndex] = useState<number>(0);
 
   return (
     <div className="App">
@@ -125,8 +143,22 @@ const App = () => {
             open={isOpenAddDialog}
             onOk={() => {
               setIsOpenAddDialog(false);
+
               const temp = [...data];
-              temp.push(addingData);
+              let targetIndex: number | undefined;
+              temp.forEach((ele, index) => {
+                if (
+                  targetIndex === undefined &&
+                  !addingData.startDate.isAfter(ele.startDate)
+                ) {
+                  targetIndex = index;
+                }
+              });
+              if (targetIndex === undefined) {
+                targetIndex = temp.length;
+              }
+              temp.splice(targetIndex, 0, addingData);
+              setActiveIndex(targetIndex);
               setData(temp);
             }}
             onCancel={() => setIsOpenAddDialog(false)}
@@ -224,7 +256,47 @@ const App = () => {
           </Modal>
         </div>
       </MenuBar>
+      <ContentWrapper>
+        <TimeLineWrapper>
+          <TimeLine datas={data} activeIndex={activeIndex} filter={filter} />
+        </TimeLineWrapper>
+      </ContentWrapper>
     </div>
+  );
+};
+
+const TimeLine = ({
+  datas,
+  activeIndex = 0,
+  filter,
+}: {
+  datas: DataType[];
+  activeIndex: number;
+  filter: string | undefined;
+}) => {
+  const afterFilter = datas.filter(data => {
+    if (!filter) {
+      return true;
+    }
+    return data.type === filter;
+  });
+  const items = afterFilter.map(data => {
+    return {
+      title: data.startDate.format('YYYY MMM DD'),
+      cardTitle: `${data.location} (${data.type})`,
+      cardSubtitle: `Duration: ${data.duration}`,
+      cardDetailedText: data.description,
+    };
+  });
+
+  return (
+    <Chrono
+      key={items.length}
+      items={items}
+      mode="HORIZONTAL"
+      showAllCardsHorizontal
+      activeItemIndex={activeIndex}
+    />
   );
 };
 
