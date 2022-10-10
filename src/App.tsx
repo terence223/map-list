@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Chrono } from 'react-chrono';
+import { Map } from 'react-map-gl';
 import {
   Button,
   Col,
@@ -7,6 +8,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  notification,
   Row,
   Select,
 } from 'antd';
@@ -42,7 +44,7 @@ const FormTitle = styled(Col)`
 
 const TimeLineWrapper = styled.div`
   width: 80%;
-  max-width: 1800px;
+  max-width: 1400px;
   height: 500px;
 `;
 
@@ -58,9 +60,11 @@ const RequiredMark = styled.span`
   color: #ff4d4f;
 `;
 
+type TypeEnum = 'businessTrip' | 'holiday' | 'other';
+
 type FilterOptionType = {
   label: string;
-  value: string;
+  value: TypeEnum;
 };
 
 export type DataType = {
@@ -69,7 +73,11 @@ export type DataType = {
   description: string;
   startDate: moment.Moment;
   duration: number;
+  position?: [number, number];
 };
+
+const MAPBOX_TOKEN =
+  'pk.eyJ1IjoidGVyZW5jZTIyMyIsImEiOiJjbDkxOXVzd2QxOGgwM29ubnkxcTJkbm0wIn0.OHoi6LE2IHXYhig-nPAkDw';
 
 const FILTER_OPTIONS: FilterOptionType[] = [
   { label: 'business trip', value: 'businessTrip' },
@@ -88,7 +96,7 @@ const INITIAL_DATA: DataType = {
 const ALL_WORD = 'all';
 
 const App = () => {
-  const [filter, setFilter] = useState<string>();
+  const [filter, setFilter] = useState<TypeEnum | undefined>();
   const [isOpenAddDialog, setIsOpenAddDialog] = useState<boolean>(false);
   const [addingData, setAddingData] = useState<DataType>({ ...INITIAL_DATA });
   const [data, setData] = useState<DataType[]>([...defaultData]);
@@ -102,7 +110,7 @@ const App = () => {
           style={{ width: '200px' }}
           placeholder="Select type"
           optionFilterProp="children"
-          onChange={(val: string) => {
+          onChange={(val: TypeEnum | typeof ALL_WORD) => {
             if (val === ALL_WORD) {
               setFilter(undefined);
             } else {
@@ -143,23 +151,49 @@ const App = () => {
             open={isOpenAddDialog}
             onOk={() => {
               setIsOpenAddDialog(false);
+              fetch(
+                `https://api.mapbox.com/geocoding/v5/mapbox.places/${addingData.location}.json?access_token=${MAPBOX_TOKEN}`
+              )
+                .then(res => {
+                  return res.json();
+                })
+                .then(res => {
+                  if (res.features[0]?.center) {
+                    const temp = [...data];
+                    let targetIndex: number | undefined;
 
-              const temp = [...data];
-              let targetIndex: number | undefined;
-              temp.forEach((ele, index) => {
-                if (
-                  targetIndex === undefined &&
-                  !addingData.startDate.isAfter(ele.startDate)
-                ) {
-                  targetIndex = index;
-                }
-              });
-              if (targetIndex === undefined) {
-                targetIndex = temp.length;
-              }
-              temp.splice(targetIndex, 0, addingData);
-              setActiveIndex(targetIndex);
-              setData(temp);
+                    // array is sorted by time, find the right position to insert data
+                    temp.forEach((ele, index) => {
+                      if (
+                        targetIndex === undefined &&
+                        !addingData.startDate.isAfter(ele.startDate)
+                      ) {
+                        targetIndex = index;
+                      }
+                    });
+                    if (targetIndex === undefined) {
+                      targetIndex = temp.length;
+                    }
+
+                    temp.splice(targetIndex, 0, {
+                      ...addingData,
+                      position: res.features[0].center,
+                    });
+                    setActiveIndex(targetIndex);
+                    setData(temp);
+                  } else {
+                    notification.open({
+                      message: 'No This Location',
+                      description: 'There is no this location at Mapbox',
+                    });
+                  }
+                })
+                .catch(err => {
+                  notification.open({
+                    message: 'Error',
+                    description: 'Something wrong',
+                  });
+                });
             }}
             onCancel={() => setIsOpenAddDialog(false)}
             width={1000}
@@ -191,7 +225,7 @@ const App = () => {
                   onChange={type => {
                     setAddingData({
                       ...addingData,
-                      type: type as string,
+                      type: type as TypeEnum,
                     });
                   }}
                   value={addingData.type}
@@ -256,11 +290,7 @@ const App = () => {
           </Modal>
         </div>
       </MenuBar>
-      <ContentWrapper>
-        <TimeLineWrapper>
-          <TimeLine datas={data} activeIndex={activeIndex} filter={filter} />
-        </TimeLineWrapper>
-      </ContentWrapper>
+      <TimeLine datas={data} activeIndex={activeIndex} filter={filter} />
     </div>
   );
 };
@@ -272,7 +302,7 @@ const TimeLine = ({
 }: {
   datas: DataType[];
   activeIndex: number;
-  filter: string | undefined;
+  filter: TypeEnum | undefined;
 }) => {
   const afterFilter = datas.filter(data => {
     if (!filter) {
@@ -280,23 +310,55 @@ const TimeLine = ({
     }
     return data.type === filter;
   });
+
   const items = afterFilter.map(data => {
     return {
       title: data.startDate.format('YYYY MMM DD'),
       cardTitle: `${data.location} (${data.type})`,
       cardSubtitle: `Duration: ${data.duration}`,
       cardDetailedText: data.description,
+      position: data.position,
     };
   });
 
+  const [mapRef, setMapRef] = useState();
+
+  if (!items.length) {
+    return null;
+  }
+
   return (
-    <Chrono
-      key={items.length}
-      items={items}
-      mode="HORIZONTAL"
-      showAllCardsHorizontal
-      activeItemIndex={activeIndex}
-    />
+    <ContentWrapper>
+      <TimeLineWrapper>
+        <Chrono
+          key={items.length}
+          //@ts-ignore
+          items={items}
+          mode="HORIZONTAL"
+          style={{ maxWidth: '1400px', width: '80%', height: '500px' }}
+          showAllCardsHorizontal
+          activeItemIndex={activeIndex}
+          onItemSelected={item => {
+            // @ts-ignore
+            mapRef?.flyTo({ center: item.position });
+          }}
+        />
+      </TimeLineWrapper>
+      <Map
+        ref={e => {
+          // @ts-ignore
+          setMapRef(e);
+        }}
+        initialViewState={{
+          longitude: -100,
+          latitude: 40,
+          zoom: 3.5,
+        }}
+        style={{ maxWidth: '1400px', width: '80%', height: '500px' }}
+        mapStyle="mapbox://styles/mapbox/streets-v9"
+        mapboxAccessToken={MAPBOX_TOKEN}
+      />
+    </ContentWrapper>
   );
 };
 
