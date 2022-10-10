@@ -1,26 +1,69 @@
-import React from 'react';
-import logo from './logo.svg';
+import React, { useState } from 'react';
+import { Select } from 'antd';
+import styled from 'styled-components';
+
 import './App.css';
 
-function App() {
+const { Option } = Select;
+
+const MenuBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 20px;
+  width: 100%;
+`;
+
+type FilterOptionType = {
+  label: string;
+  value: string;
+};
+
+const FILTER_OPTIONS: FilterOptionType[] = [
+  { label: 'business trip', value: 'businessTrip' },
+  { label: 'holiday', value: 'holiday' },
+  { label: 'other', value: 'other' },
+];
+
+const ALL_WORD = 'all';
+
+const App = () => {
+  const [filter, setFilter] = useState<string>();
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
+      <MenuBar>
+        <Select
+          showSearch
+          style={{ width: '200px' }}
+          placeholder="Select type"
+          optionFilterProp="children"
+          onChange={(val: string) => {
+            if (val === ALL_WORD) {
+              setFilter(undefined);
+            } else {
+              setFilter(val);
+            }
+          }}
+          filterOption={(input, option) =>
+            (option!.children as unknown as string)
+              .toLowerCase()
+              .includes(input.toLowerCase())
+          }
         >
-          Learn React
-        </a>
-      </header>
+          <Option key={ALL_WORD} value={ALL_WORD}>
+            All
+          </Option>
+          {FILTER_OPTIONS.map((option: FilterOptionType) => {
+            return (
+              <Option key={option.value} value={option.value}>
+                {option.label}
+              </Option>
+            );
+          })}
+        </Select>
+      </MenuBar>
     </div>
   );
-}
+};
 
 export default App;
