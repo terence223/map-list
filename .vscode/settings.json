@@ -1,0 +1,13 @@
+{
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": true
+    },
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "i18n-ally.displayLanguage": "zh-TW",
+    "i18n-ally.enabledFrameworks": ["react", "i18next"],
+    "i18n-ally.keystyle": "nested",
+    "i18n-ally.localesPaths": ["public/locales"],
+    "i18n-ally.namespace": true,
+    "stylelint.validate": ["css", "scss", "postcss", "typescriptreact"],
+    "typescript.tsdk": "node_modules/typescript/lib"
+}
